@@ -51,7 +51,6 @@ def run_analyze_output():
             print('Datavyu total on-off looks per trial: \n', datavyu_times)
             print('iCatcher total on-off looks per trial: \n', icatcher_times)
             print('Pearson R coefficient: {} \np-value: {}'.format(round(stat, 3), round(p, 3)))
-            
 
 #####################
 ## HELPER FUNCTIONS ##
@@ -149,7 +148,7 @@ def assign_trial(df, trial_sets):
             if value in range(start, end + 1): 
                 return ranges.index([start, end]) + 1
         return 0
-    
+    # rewrite this with logicals
     df['trial'] = df['time_ms'].apply(lambda x: map_to_range(x, trial_sets))
 
 
