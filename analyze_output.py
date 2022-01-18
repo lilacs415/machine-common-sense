@@ -13,10 +13,18 @@ Datavyu_out = 'OutputFiles'
 vid_dir = '../TEMP_video'
 
 ###################
+## HELPER FUNCTIONS ##
+####################
+def listdir_nohidden(path):
+    for f in os.listdir(path):
+        if not f.startswith('.'):
+            yield f
+
+###################
 ## ANALYSIS SCRIPT ##
 ####################
 def run_analyze_output():
-    for filename in os.listdir(iCatcher_dir):
+    for filename in listdir_nohidden(iCatcher_dir):
             input_file, output_file = get_input_output(filename)
             child_id = filename.split('_')[0]
             
@@ -60,10 +68,13 @@ def get_input_output(filename):
     """
     child_id = filename.split('_')[0]
     input_output = []
-    
+
+    print(filename)
+
     # search for corresponding input file in Datavyu folder
     for folder in [Datavyu_in, Datavyu_out]:
         for f in os.listdir(folder):
+            print(f)
             if child_id in f:
                 input_output.append(f)
                 break
@@ -108,12 +119,13 @@ def get_trial_sets(input_file):
     input_file = Datavyu_in + '/' + input_file
     df = pd.read_csv(input_file)
     df_sets = df[['Trials.onset', 'Trials.offset']]
+
     df_sets.dropna(inplace=True)
-     
+
     trial_sets = []
     for _, trial in df_sets.iterrows():
         trial_sets.append([int(trial['Trials.onset']), int(trial['Trials.offset'])])
-    
+
     return trial_sets
 
 
