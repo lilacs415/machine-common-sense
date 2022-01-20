@@ -1,4 +1,7 @@
 import os
+import sys
+from pathlib import Path
+
 import pandas as pd
 import numpy as np
 
@@ -30,7 +33,7 @@ def listdir_nohidden(path):
 ###################
 ## ANALYSIS SCRIPT ##
 ####################
-def run_analyze_output():
+def run_analyze_output(run=False):
     """
     Given an iCatcher output directory and Datavyu input and output 
     files, runs iCatcher over all videos in vid_dir that have not been
@@ -46,32 +49,38 @@ def run_analyze_output():
         run_sequential()
         
     for filename in listdir_nohidden(iCatcher_dir):
+        child_id = filename.split('_')[0]
+        try:
             input_file, output_file = get_input_output(filename)
-            child_id = filename.split('_')[0]
+        except Exception:
+            continue
             
-            # get timestamp for each frame in the video
-            vid_path = vid_dir + '/' + child_id + ".mp4"
-            print('getting frame information for {}...'.format(vid_path))
-            timestamps, length, _ = get_frame_information(vid_path)
-            
-            # initialize df with time stamps for iCatcher file
-            icatcher_path = iCatcher_dir + '/' + filename
-            icatcher = read_convert_output(icatcher_path, timestamps)
+        # get timestamp for each frame in the video
+        vid_path = vid_dir + '/' + child_id + ".mp4"
+        print('getting frame information for {}...'.format(vid_path))
+        timestamps, length, _ = get_frame_information(vid_path)
+        
+        # initialize df with time stamps for iCatcher file
+        icatcher_path = iCatcher_dir + '/' + filename
+        icatcher = read_convert_output(icatcher_path, timestamps)
 
-            # get trial onsets and offsets in Datavyu input file, match to iCatcher file
-            trial_sets = get_trial_sets(input_file)
-            assign_trial(icatcher, trial_sets)
-            
-            # sum on looks and off looks for each trial
-            icatcher_times = get_on_off_times(icatcher)
-            datavyu_times = get_output_times(output_file)
-            
-            # return comparison metrics 
-            icatcher_arr, datavyu_arr = np.array(icatcher_times).flatten(), np.array(datavyu_times).flatten()
-            stat, p = pearsonr(icatcher_arr, datavyu_arr)
-            print('Datavyu total on-off looks per trial: \n', datavyu_times)
-            print('iCatcher total on-off looks per trial: \n', icatcher_times)
-            print('Pearson R coefficient: {} \np-value: {}'.format(round(stat, 3), round(p, 3)))
+        # get trial onsets and offsets in Datavyu input file, match to iCatcher file
+        trial_sets = get_trial_sets(input_file)
+        assign_trial(icatcher, trial_sets)
+        
+        # sum on looks and off looks for each trial
+        icatcher_times = get_on_off_times(icatcher)
+        datavyu_times = get_output_times(output_file)
+        
+        write_to_csv(child_id, icatcher_times, datavyu_times)
+
+        # return comparison metrics 
+        icatcher_arr, datavyu_arr = np.array(icatcher_times).flatten(), np.array(datavyu_times).flatten()
+        stat, p = pearsonr(icatcher_arr, datavyu_arr)
+        print('Datavyu total on-off looks per trial: \n', datavyu_times)
+        print('iCatcher total on-off looks per trial: \n', icatcher_times)
+        print('Pearson R coefficient: {} \np-value: {}'.format(round(stat, 3), round(p, 3)))
+
 
 #####################
 ## HELPER FUNCTIONS ##
@@ -89,12 +98,9 @@ def get_input_output(filename):
     child_id = filename.split('_')[0]
     input_output = []
 
-    print(filename)
-
     # search for corresponding input file in Datavyu folder
     for folder in [Datavyu_in, Datavyu_out]:
         for f in os.listdir(folder):
-            print(f)
             if child_id in f:
                 input_output.append(f)
                 break
@@ -139,7 +145,6 @@ def get_trial_sets(input_file):
     input_file = Datavyu_in + '/' + input_file
     df = pd.read_csv(input_file)
     df_sets = df[['Trials.onset', 'Trials.offset']]
-
     df_sets.dropna(inplace=True)
 
     trial_sets = []
@@ -183,8 +188,8 @@ def get_on_off_times(df):
     time stamp at frame i
     rtype: List[List[float]]
     """
-    n_trials = len(pd.unique(df['trial']))
-    looking_times = [[0, 0] for trial in range(n_trials - 1)]
+    n_trials = max(pd.unique(df['trial']))
+    looking_times = [[0, 0] for trial in range(n_trials)]
     
     # separate times by trial
     trial_groups = df.groupby(['trial'])
@@ -243,7 +248,41 @@ def get_output_times(output_file):
         looking_times.append([round(trial['Looks On Total (s)'], 3), round(trial['Looks Off Total (s)'], 3)])
     
     return looking_times
+
+
+def write_to_csv(id, icatcher_data, datavyu_data):
+    """
+    checks if file "out.csv" is in directory. if not, writes new file
+    containing looking times computed by iCatcher and Datavyu for child
+    with Lookit ID id. 
+    
+    rtype: None
+    """
+    assert(len(icatcher_data) == len(datavyu_data))
+    id_arr = [id] * len(icatcher_data)
+    data = {
+        'child': id_arr,
+        'trial_num': [i + 1 for i in range(len(icatcher_data))],
+        'Datavyu_on(s)': [trial[0] for trial in datavyu_data],
+        'Datavyu_off(s)': [trial[1] for trial in datavyu_data],
+        'iCatcher_on(s)': [trial[0] for trial in icatcher_data],
+        'iCatcher_off(s)': [trial [1] for trial in icatcher_data]
+    }
+
+    df = pd.DataFrame(data)
+
+    output_file = Path("out.csv")
+    if not output_file.is_file():
+        df.to_csv("out.csv")
+        return
+    
+    output_df = pd.read_csv("out.csv", index_col=0)
+    ids = output_df['child'].unique()
+
+    if id not in ids:
+        output_df = output_df.append(df, ignore_index=True)
+        output_df.to_csv("out.csv")
     
 
 if __name__ == "__main__":
-    run_analyze_output()
+    run_analyze_output(run=False)
