@@ -10,12 +10,33 @@ from Scripts.video import get_frame_information
 iCatcher_dir = 'iCatcherOutput'
 Datavyu_in = 'InputFiles'
 Datavyu_out = 'OutputFiles'
+
+# directory for videos
 vid_dir = '../TEMP_video'
+
+# add absolute path to iCatcher repo
+iCatcher = '/Users/gracesong/dev/iCatcher'
+sys.path.append(iCatcher)
+from run_icatcher import run_sequential
 
 ###################
 ## ANALYSIS SCRIPT ##
 ####################
 def run_analyze_output():
+    """
+    Given an iCatcher output directory and Datavyu input and output 
+    files, runs iCatcher over all videos in vid_dir that have not been
+    already run, computes looking times for all iCatcher outputs, and
+    compares with Datavyu looking times. Raises exception if corresponding
+    Datavyu file is not available.
+
+    run (bool): if set to True, runs iCatcher over all new videos in 
+    vid_dir prior to analyzing
+    """
+    # run_icatcher over any video files that have not been run yet
+    if run:
+        run_sequential()
+        
     for filename in os.listdir(iCatcher_dir):
             input_file, output_file = get_input_output(filename)
             child_id = filename.split('_')[0]
