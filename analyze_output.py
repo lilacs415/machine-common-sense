@@ -20,6 +20,14 @@ sys.path.append(iCatcher)
 from run_icatcher import run_sequential
 
 ###################
+## HELPER FUNCTIONS ##
+####################
+def listdir_nohidden(path):
+    for f in os.listdir(path):
+        if not f.startswith('.'):
+            yield f
+
+###################
 ## ANALYSIS SCRIPT ##
 ####################
 def run_analyze_output():
@@ -37,7 +45,7 @@ def run_analyze_output():
     if run:
         run_sequential()
         
-    for filename in os.listdir(iCatcher_dir):
+    for filename in listdir_nohidden(iCatcher_dir):
             input_file, output_file = get_input_output(filename)
             child_id = filename.split('_')[0]
             
@@ -64,7 +72,6 @@ def run_analyze_output():
             print('Datavyu total on-off looks per trial: \n', datavyu_times)
             print('iCatcher total on-off looks per trial: \n', icatcher_times)
             print('Pearson R coefficient: {} \np-value: {}'.format(round(stat, 3), round(p, 3)))
-            
 
 #####################
 ## HELPER FUNCTIONS ##
@@ -81,10 +88,13 @@ def get_input_output(filename):
     """
     child_id = filename.split('_')[0]
     input_output = []
-    
+
+    print(filename)
+
     # search for corresponding input file in Datavyu folder
     for folder in [Datavyu_in, Datavyu_out]:
         for f in os.listdir(folder):
+            print(f)
             if child_id in f:
                 input_output.append(f)
                 break
@@ -129,12 +139,13 @@ def get_trial_sets(input_file):
     input_file = Datavyu_in + '/' + input_file
     df = pd.read_csv(input_file)
     df_sets = df[['Trials.onset', 'Trials.offset']]
+
     df_sets.dropna(inplace=True)
-     
+
     trial_sets = []
     for _, trial in df_sets.iterrows():
         trial_sets.append([int(trial['Trials.onset']), int(trial['Trials.offset'])])
-    
+
     return trial_sets
 
 
@@ -158,7 +169,7 @@ def assign_trial(df, trial_sets):
             if value in range(start, end + 1): 
                 return ranges.index([start, end]) + 1
         return 0
-    
+    # rewrite this with logicals
     df['trial'] = df['time_ms'].apply(lambda x: map_to_range(x, trial_sets))
 
 

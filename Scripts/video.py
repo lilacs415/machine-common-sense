@@ -26,7 +26,7 @@ def get_frame_information(video_file_path):
     assert len(frame_times) == int(video_stream_info["nb_frames"])
 
     # convert to milliseconds
-    frame_times_ms = [1000*int(float(x)) for x in frame_times]
+    frame_times_ms = [int(1000*float(x)) for x in frame_times]
     assert frame_times_ms[0] == 0.0
 
     # returns timestamps in milliseconds
