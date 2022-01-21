@@ -17,3 +17,4 @@ commands_list = [
 ]
 
 result = subprocess.run(commands_list)
+
