@@ -20,7 +20,6 @@ vid_dir = '../TEMP_video'
 # add absolute path to iCatcher repo
 iCatcher = '/Users/gracesong/dev/iCatcher'
 sys.path.append(iCatcher)
-from run_icatcher import run_sequential
 
 ###################
 ## HELPER FUNCTIONS ##
@@ -33,7 +32,7 @@ def listdir_nohidden(path):
 ###################
 ## ANALYSIS SCRIPT ##
 ####################
-def run_analyze_output(run=False):
+def run_analyze_output():
     """
     Given an iCatcher output directory and Datavyu input and output 
     files, runs iCatcher over all videos in vid_dir that have not been
@@ -44,15 +43,23 @@ def run_analyze_output(run=False):
     run (bool): if set to True, runs iCatcher over all new videos in 
     vid_dir prior to analyzing
     """
-    # run_icatcher over any video files that have not been run yet
-    if run:
-        run_sequential()
-        
     for filename in listdir_nohidden(iCatcher_dir):
         child_id = filename.split('_')[0]
+
+        # skip if child data already added
+        output_file = Path("out.csv")
+        if output_file.is_file():
+            output_df = pd.read_csv("out.csv", index_col=0)
+            ids = output_df['child'].unique()
+            if child_id in ids: 
+                print(child_id + ' already processed')
+                continue
+        
+        # checks for corresponding Datavyu files
         try:
             input_file, output_file = get_input_output(filename)
         except Exception:
+            print('No Datavyu files found for {}'.format(child_id))
             continue
             
         # get timestamp for each frame in the video
@@ -285,4 +292,4 @@ def write_to_csv(id, icatcher_data, datavyu_data):
     
 
 if __name__ == "__main__":
-    run_analyze_output(run=False)
+    run_analyze_output()
