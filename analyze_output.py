@@ -151,14 +151,25 @@ def get_trial_sets(input_file):
     """
     input_file = Datavyu_in + '/' + input_file
     df = pd.read_csv(input_file)
-    df_sets = df[['Trials.onset', 'Trials.offset']]
+
+    # there's two different file formats -- updated as needed 
+    try: 
+        df_sets = df[['Trials.onset', 'Trials.offset']]
+        df_sets = df_sets.rename(columns={"Trials.onset": "onset", "Trials.offset": "offset"})
+    except: 
+        df_sets = df[['Trials_onset', 'Trials_offset']]
+        df_sets = df_sets.rename(columns={"Trials_onset": "onset", "Trials_offset": "offset"})
     df_sets.dropna(inplace=True)
 
     trial_sets = []
     for _, trial in df_sets.iterrows():
         trial_sets.append([int(trial['Trials.onset']), int(trial['Trials.offset'])])
 
-    return trial_sets
+    def unique(sequence):
+        seen = set()
+        return [x for x in sequence if not (tuple(x) in seen or seen.add(tuple(x)))]
+
+    return unique(trial_sets)
 
 
 def assign_trial(df, trial_sets):

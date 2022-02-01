@@ -34,5 +34,5 @@ def get_frame_information(video_file_path):
     return frame_times_ms, int(video_stream_info["nb_frames"]), video_stream_info["time_base"]
 
 # if __name__ == "__main__":
-#     vid_path = "../TEMP_video/NFYDcF.mp4"
-#     print(get_frame_information(vid_path))
+#     vid_path = "../TEMP_video/BHZZPE.mp4"
+#     print(get_frame_information(vid_path)[0][:20])
