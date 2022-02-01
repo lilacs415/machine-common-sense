@@ -19,6 +19,11 @@ def get_frame_information(video_file_path):
     output, err = ffmpeg.communicate()
     output = json.loads(output)
 
+    frames = output.get('frames', [])
+    # did not find video
+    if not frames: 
+        return [], 0, []
+
     # filter out video frame info only 
     video_frames = [frame for frame in output['frames'] if frame['media_type'] == 'video']
     frame_times = [frame["pkt_pts_time"] for frame in video_frames]

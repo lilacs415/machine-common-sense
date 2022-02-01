@@ -10,16 +10,16 @@ from scipy.stats import pearsonr
 from Scripts.video import get_frame_information
 
 # global directory path variables. make these your folder names under MCS
-iCatcher_dir = 'iCatcherOutput'
-Datavyu_in = 'InputFiles'
-Datavyu_out = 'OutputFiles'
+ICATCHER_DIR = 'iCatcherOutput'
+DATAVYU_IN = 'InputFiles'
+DATAVYU_OUT = 'OutputFiles'
 
 # directory for videos
-vid_dir = '../TEMP_video'
+VID_DIR = '../TEMP_video'
 
 # add absolute path to iCatcher repo
-iCatcher = '/Users/gracesong/dev/iCatcher'
-sys.path.append(iCatcher)
+ICATCHER = '/Users/gracesong/dev/iCatcher'
+sys.path.append(ICATCHER)
 
 ###################
 ## HELPER FUNCTIONS ##
@@ -32,24 +32,26 @@ def listdir_nohidden(path):
 ###################
 ## ANALYSIS SCRIPT ##
 ####################
-def run_analyze_output():
+def run_analyze_output(data_filename="out.csv", session=None):
     """
     Given an iCatcher output directory and Datavyu input and output 
     files, runs iCatcher over all videos in vid_dir that have not been
     already run, computes looking times for all iCatcher outputs, and
-    compares with Datavyu looking times. Raises exception if corresponding
-    Datavyu file is not available.
+    compares with Datavyu looking times. 
 
-    run (bool): if set to True, runs iCatcher over all new videos in 
-    vid_dir prior to analyzing
+    data_filename (string): name of file you want comparison data to be written
+            to. Must have .csv ending. 
+    session (string): ID of the experiment session. If session is not
+            specified, looks for videos only within VID_DIR, otherwise
+            searches within [VID_DIR]/session[session]
     """
-    for filename in listdir_nohidden(iCatcher_dir):
+    for filename in listdir_nohidden(ICATCHER_DIR):
         child_id = filename.split('_')[0]
 
         # skip if child data already added
-        output_file = Path("out.csv")
+        output_file = Path(data_filename)
         if output_file.is_file():
-            output_df = pd.read_csv("out.csv", index_col=0)
+            output_df = pd.read_csv(data_filename, index_col=0)
             ids = output_df['child'].unique()
             if child_id in ids: 
                 print(child_id + ' already processed')
@@ -61,14 +63,21 @@ def run_analyze_output():
         except Exception:
             print('No Datavyu files found for {}'.format(child_id))
             continue
-            
+        
+        vid_path = VID_DIR + '/'
+        if session:
+            vid_path += "session" + session + '/'
+        vid_path = vid_path + child_id + ".mp4"
+
         # get timestamp for each frame in the video
-        vid_path = vid_dir + '/' + child_id + ".mp4"
         print('getting frame information for {}...'.format(vid_path))
         timestamps, length, _ = get_frame_information(vid_path)
+        if not timestamps:
+            print('video not found for {} in {} folder'.format(child_id, VID_DIR))
+            continue
         
         # initialize df with time stamps for iCatcher file
-        icatcher_path = iCatcher_dir + '/' + filename
+        icatcher_path = ICATCHER_DIR + '/' + filename
         icatcher = read_convert_output(icatcher_path, timestamps)
 
         # get trial onsets and offsets in Datavyu input file, match to iCatcher file
@@ -78,8 +87,8 @@ def run_analyze_output():
         # sum on looks and off looks for each trial
         icatcher_times = get_on_off_times(icatcher)
         datavyu_times = get_output_times(output_file)
-        
-        write_to_csv(child_id, icatcher_times, datavyu_times)
+
+        write_to_csv(data_filename, child_id, icatcher_times, datavyu_times, session)
 
         # return comparison metrics 
         icatcher_arr, datavyu_arr = np.array(icatcher_times).flatten(), np.array(datavyu_times).flatten()
@@ -106,7 +115,7 @@ def get_input_output(filename):
     input_output = []
 
     # search for corresponding input file in Datavyu folder
-    for folder in [Datavyu_in, Datavyu_out]:
+    for folder in [DATAVYU_IN, DATAVYU_OUT]:
         for f in os.listdir(folder):
             if child_id in f:
                 input_output.append(f)
@@ -149,7 +158,7 @@ def get_trial_sets(input_file):
     input_file (string): name of Datavyu input file
     rtype: List[List[int]]
     """
-    input_file = Datavyu_in + '/' + input_file
+    input_file = DATAVYU_IN + '/' + input_file
     df = pd.read_csv(input_file)
 
     # there's two different file formats -- updated as needed 
@@ -256,7 +265,7 @@ def get_output_times(output_file):
     output_file (string): name of Datavyu output file
     rtype: List[List[int]]
     """
-    output_file = Datavyu_out + '/' + output_file
+    output_file = DATAVYU_OUT + '/' + output_file
     df = pd.read_csv(output_file)
     df_looks = df[['Looks On Total (s)', 'Looks Off Total (s)']]
     df_looks.dropna(inplace=True)
@@ -268,18 +277,27 @@ def get_output_times(output_file):
     return looking_times
 
 
-def write_to_csv(id, icatcher_data, datavyu_data):
+def write_to_csv(data_filename, child_id, icatcher_data, datavyu_data, session):
     """
-    checks if file "out.csv" is in directory. if not, writes new file
+    checks if output file is in directory. if not, writes new file
     containing looking times computed by iCatcher and Datavyu for child
     with Lookit ID id. 
     
+    child_id (string): unique child ID associated with subject
+    icatcher_data (List[List[int]]): list of [on times, off times] per trial
+                calculated form iCatcher
+    datavyu_data (List[List[int]]): list of [on times, off times] per trial
+                calculated form iCatcher
+    session (string): the experiment session the participant was placed in
+
     rtype: None
     """
     assert(len(icatcher_data) == len(datavyu_data))
+    num_trials = len(icatcher_data)
     id_arr = [id] * len(icatcher_data)
     data = {
         'child': id_arr,
+        'session': [session] * num_trials,
         'trial_num': [i + 1 for i in range(len(icatcher_data))],
         'Datavyu_on(s)': [trial[0] for trial in datavyu_data],
         'Datavyu_off(s)': [trial[1] for trial in datavyu_data],
@@ -289,17 +307,17 @@ def write_to_csv(id, icatcher_data, datavyu_data):
 
     df = pd.DataFrame(data)
 
-    output_file = Path("out.csv")
+    output_file = Path(data_filename)
     if not output_file.is_file():
-        df.to_csv("out.csv")
+        df.to_csv(data_filename)
         return
     
-    output_df = pd.read_csv("out.csv", index_col=0)
+    output_df = pd.read_csv(data_filename, index_col=0)
     ids = output_df['child'].unique()
 
-    if id not in ids:
+    if child_id not in ids:
         output_df = output_df.append(df, ignore_index=True)
-        output_df.to_csv("out.csv")
+        output_df.to_csv(data_filename)
     
 
 if __name__ == "__main__":
