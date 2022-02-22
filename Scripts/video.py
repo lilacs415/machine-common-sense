@@ -7,7 +7,20 @@ import pickle
 
 from nbformat import write
 
-def get_frame_information(video_file_path):
+def get_frame_information(video_file_path, data_file_path='video_data.json'):
+
+    child_id = vid_path.strip('.mp4').split('/')[-1]
+
+    # if frame information already exists, return from data
+    output_file = Path(data_file_path)
+    if output_file.is_file():
+        with open(data_file_path, 'r') as json_file:
+            data = json.load(json_file)
+
+        for vid in data:
+            if vid['child'] == child_id:
+                return vid['timestamps'], vid['num_frames']
+
     commands_list = [
         "ffprobe",
         "-show_frames",
@@ -38,14 +51,15 @@ def get_frame_information(video_file_path):
 
     # write to json if video information extracted
     if frame_times_ms:
-        child_id = vid_path.strip('.mp4').split('/')[-1]
-        write_to_json(child_id, frame_times_ms, int(video_stream_info["nb_frames"]))
+        write_to_json(child_id, frame_times_ms, int(video_stream_info["nb_frames"]), data_file_path)
 
     # returns timestamps in milliseconds
-    return frame_times_ms, int(video_stream_info["nb_frames"]), video_stream_info["time_base"]
+    return frame_times_ms, int(video_stream_info["nb_frames"])
+
+# did not include: video_stream_info["time_base"] 
 
 
-def write_to_json(child_id, timestamps, num_frames):
+def write_to_json(child_id, timestamps, num_frames, filename):
     """
     checks if output file is in directory. if not, writes new JSON file
     consisting of an array of dictionaries. Adds 
@@ -58,8 +72,6 @@ def write_to_json(child_id, timestamps, num_frames):
 
     rtype: None
     """
-    filename = 'video_data.json'
-
     vid_data = {
         'child': child_id,
         'timestamps': timestamps,

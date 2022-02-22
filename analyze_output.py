@@ -71,7 +71,7 @@ def run_analyze_output(data_filename="out.csv", session=None):
 
         # get timestamp for each frame in the video
         print('getting frame information for {}...'.format(vid_path))
-        timestamps, length, _ = get_frame_information(vid_path)
+        timestamps, length = get_frame_information(vid_path)
         if not timestamps:
             print('video not found for {} in {} folder'.format(child_id, VID_DIR))
             continue
