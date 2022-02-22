@@ -3,7 +3,9 @@
 import subprocess
 from pathlib import Path
 import json
+import pickle
 
+from nbformat import write
 
 def get_frame_information(video_file_path):
     commands_list = [
@@ -34,10 +36,55 @@ def get_frame_information(video_file_path):
     frame_times_ms = [int(1000*float(x)) for x in frame_times]
     assert frame_times_ms[0] == 0.0
 
-    # returns timestamps in milliseconds
+    # write to json if video information extracted
+    if frame_times_ms:
+        child_id = vid_path.strip('.mp4').split('/')[-1]
+        write_to_json(child_id, frame_times_ms, int(video_stream_info["nb_frames"]))
 
+    # returns timestamps in milliseconds
     return frame_times_ms, int(video_stream_info["nb_frames"]), video_stream_info["time_base"]
 
-# if __name__ == "__main__":
-#     vid_path = "../TEMP_video/BHZZPE.mp4"
-#     print(get_frame_information(vid_path)[0][:20])
+
+def write_to_json(child_id, timestamps, num_frames):
+    """
+    checks if output file is in directory. if not, writes new JSON file
+    consisting of an array of dictionaries. Adds 
+    {child: child_id, timestamps: timestamps, num_frames: numframes} if
+    child_id not already in data.
+    
+    child_id (string): unique child ID associated with subject
+    timestamps (List[int]):
+    num_frames (int): number of frames in the video
+
+    rtype: None
+    """
+    filename = 'video_data.json'
+
+    vid_data = {
+        'child': child_id,
+        'timestamps': timestamps,
+        'num_frames': num_frames
+    }
+
+    output_file = Path(filename)
+
+    # if no data file with name filename exists, create new array 
+    if output_file.is_file():
+        with open(filename, 'r') as json_file:
+            data = json.load(json_file)
+    else:
+        data = []
+
+    # write data if child not already in data
+    if not any([child_id in x['child'] for x in data]):
+        data.append(vid_data)
+    with open(filename, 'w') as json_file:
+        json.dump(data, json_file)
+
+    return
+
+    
+
+if __name__ == "__main__":
+    vid_path = "../TEMP_video/3GSKJ5.mp4"
+    timestamps = get_frame_information(vid_path)[0]
