@@ -9,7 +9,7 @@ from nbformat import write
 
 def get_frame_information(video_file_path, data_file_path='video_data.json'):
 
-    child_id = vid_path.strip('.mp4').split('/')[-1]
+    child_id = video_file_path.strip('.mp4').split('/')[-1]
 
     # if frame information already exists, return from data
     output_file = Path(data_file_path)
@@ -35,8 +35,10 @@ def get_frame_information(video_file_path, data_file_path='video_data.json'):
     output = json.loads(output)
 
     frames = output.get('frames', [])
+
     # did not find video
     if not frames: 
+        print('did not find time stamps')
         return [], 0, []
 
     # filter out video frame info only 

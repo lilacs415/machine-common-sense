@@ -14,7 +14,7 @@ from Scripts.video import get_frame_information
 # decide whether to get trial onsets from lookit session info or datavyu hand coding
 # 'lookit' -> from lookit json info, 'datavyu' -> from datavyu _annotation
 # 'compare' -> get both and compare
-trial_info_source = 'datavyu'
+trial_info_source = 'lookit'
 
 # This is only relevant if trial_info_source = 'lookit'. if set to true, it's going
 # regenerate the json_table from the raw json files. if set to false, it'll try # TODO: retrieve
@@ -42,15 +42,16 @@ def run_analyze_output():
 
     if trial_info_source == 'lookit':
         if regenerate_json_table:
-            #lookit_trial_info = get_lookit_trial_info
+            lookit_trial_onsets = get_lookit_trial_onsets()
+            pass
         else:
+            pass
             # load saved lookit session info
-            # lookit_trial_info = read_csv('lookit_info/lookit_trial_info.csv')
-
+            # lookit_trial_onsets = read_csv('lookit_info/lookit_trial_info.csv')
+        
 
     for filename in listdir_nohidden(iCatcher_dir):
 
-            input_file, output_file = get_input_output(filename)
             child_id = filename.split('_')[0]
 
             # get timestamp for each frame in the video
@@ -58,11 +59,17 @@ def run_analyze_output():
             print('getting frame information for {}...'.format(vid_path))
             timestamps, length, _ = get_frame_information(vid_path)
 
+            # if timestamps are empty
+            if not timestamps:
+                continue
+
             # initialize df with time stamps for iCatcher file
             icatcher_path = iCatcher_dir + '/' + filename
             icatcher = read_convert_output(icatcher_path, timestamps)
 
             if trial_info_source == 'datavyu' or trial_info_source == 'both':
+
+                input_file, output_file = get_input_output(filename)
 
             # get trial onsets and offsets in Datavyu input file, match to iCatcher file
                 trial_sets = get_trial_sets_datavyu(input_file)
@@ -80,6 +87,7 @@ def run_analyze_output():
                 print('Pearson R coefficient: {} \np-value: {}'.format(round(stat, 3), round(p, 3)))
 
             elif trial_info_source == 'lookit' or trial_info_source == 'both':
+                pass
 
                 # get trial sets from table for current child
                 # trial_sets = lookit_trial_info[child_id]
@@ -91,6 +99,7 @@ def run_analyze_output():
                 # save(icatcher_times, 'icatcher_times.csv')
 
             elif trial_info_source == 'both':
+                pass
                 # compare looking times derived from handcoded trial info vs.
                 # lookit trial info
                     
