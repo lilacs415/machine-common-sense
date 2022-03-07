@@ -1,22 +1,68 @@
-# paths
+from datetime import datetime 
+import pandas as pd
+from string import digits
+
+
 iCatcher_dir = 'iCatcherOutput'
 
 def get_lookit_trial_onsets():
 
-    sessionA_file = open('lookit_info/lookit_info_sessionA.json')
-    sessionA_dict = json.load(sessionA_file)
+    f = open('lookit_info/lookit_info_sessionA.json')
+    sessionA_info = json.load(f)
 
-    sessionB_file = open('lookit_info/lookit_info_sessionB.json')
-    sessionB_dict = json.load(sessionB_dict)
+    f = open('lookit_info/lookit_info_sessionB.json')
+    sessionB_info = json.load(f)
 
-    # combine dictionaries, with extra level for session
-    dictionaries_combined = {**sessionA_dict, **sessionB_dict}
+    # combine info from both sessions
+    dictionaries_combined = sessionA_info + sessionB_info
 
-    # loop through all child id's in iCatcher directory
-    for filename in listdir_nohidden(iCatcher_dir):
-        child_id = filename.split('_')[0]
+    # dataframe in which info will be accumulated
+    trial_timing_info = pd.DataFrame()
 
-        # find child id in json
+    for session_info in dictionaries_combined:
+
+        # get key of recording start
+        recording_start_key = [v for v in session_info['exp_data'].keys() if v.endswith('start-recording-with-image')] 
+        
+        # only continue if this part of the dictionary has a 'start-recording-with-image' frame
+        if recording_start_key:
+            child_id = session_info['child']['hashed_id']     
+
+            # timestamp of start of recording
+            video_onset = datetime.fromisoformat(session_info['exp_data'][recording_start_key[0]]['eventTimings'][5]['timestamp'][0:-1])
+
+            # create dict, which has 5 columns: child id, recording onset, trial type, 
+            # absolute trial onset, relative trial onset and trial number
+            trial_timestamps = \
+                [{'child_id': child_id, 'video_onset': video_onset, 'trial_type': key, \
+                                'absolute_onset': datetime.fromisoformat(value['eventTimings'][2]['timestamp'][0:-1]), \
+                                'absolute_offset': datetime.fromisoformat(value['eventTimings'][-3]['timestamp'][0:-1])} \
+                                for key, value in session_info['exp_data'].items() \
+                                    # get fam and test trials (but not attention getters)
+                                    if ('fam' in key or 'test' in key) and 'attention' not in key] 
+
+            trial_timing_info = trial_timing_info.append(pd.DataFrame(trial_timestamps))
+
+    
+    # get trial onset/offset relative to onset of video recording
+    trial_timing_info['relative_onset'] = trial_timing_info['absolute_onset'] - trial_timing_info['video_onset']
+    trial_timing_info['relative_offset'] = trial_timing_info['absolute_offset'] - trial_timing_info['video_onset']
+    
+    # clean up trial type to be ready for parsing
+    trial_timing_info['trial_type'] = trial_timing_info['trial_type'].str.replace('\d+-', '')
+
+    # parse trial type into fam vs. test and scene
+    trial_timing_info[['fam_or_test', 'scene']] = trial_timing_info['trial_type'].str.split('-', 1, expand = True)
+
+    # sort whole df by trial onset
+    trial_timing_info.sort_values(by='absolute_onset', inplace=True)
+
+    # get trial number using absolute onsets
+    trial_timing_info['trial_number'] = trial_timing_info.groupby('child_id').cumcount()+1
+
+
+
+
 
         # throw error if child id isn't in json
         if child_id not in sessionA_dict or sessionB_dict:
