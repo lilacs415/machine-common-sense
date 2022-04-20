@@ -1,0 +1,64 @@
+---
+title: "lookit_timestamps_info"
+author: "gal"
+date: '2022-04-20'
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+
+my_df <- read.csv('manual_lookit_comparison_both.csv')
+
+my_df <- my_df %>% group_by(child_name) %>% mutate(trial_num =1:n()) %>% filter(same_num_trials == 'True')
+
+
+ggplot(my_df, aes(x = trial_length/1000, y =lookit_trial_length/1000)) + 
+  geom_jitter(width = 0.1) + 
+  theme_classic(size = 14) + 
+  xlab('Hand-coded trial length (sec)') + 
+  ylab('Lookit trial length (sec)') + 
+  ggtitle('Trial durations') +
+  geom_abline(slope = 1, size = 1, color = 'red') 
+
+ggsave('trial_durations.png')
+
+
+ggplot(my_df, aes(x = trial_num, lookit_trial_length_diff/1000)) + 
+  geom_jitter(width = 0.1) + 
+  theme_classic() + 
+  xlab('Trial number') + 
+  ylab('Trial duration (lookit) - Trial duration (manual)') + 
+  theme(strip.text.x = element_text(size = 14, colour = "black"),
+        axis.text=element_text(size=13),
+        axis.title= element_text(size = 14))  + 
+  ggtitle('Trial durations')
+
+sd(my_df$lookit_offset_diff)
+
+ggsave('trial_durations_diff.png')
+
+ggplot(my_df, aes(x = trial_num, lookit_onset_diff)) +
+  geom_jitter(width = 0.1) +   
+  theme_classic() +
+  theme(strip.text.x = element_text(size = 14, colour = "black"),
+        axis.text=element_text(size=13),
+        axis.title= element_text(size = 14)) + 
+  xlab('Trial number') + 
+  ylab('Trial onset (lookit) - Trial onset (manual)') + 
+  ggtitle('Trial onset time') 
+
+ggsave('onsets.png')
+
+ggplot(my_df, aes(x = trial_num, lookit_offset_diff))  + 
+  geom_jitter(width = 0.1) + theme_classic() +
+  theme(strip.text.x = element_text(size = 14, colour = "black"),
+        axis.text=element_text(size=13),
+        axis.title= element_text(size = 14)) + 
+  xlab('Trial number') + 
+  ylab('Trial onset (lookit) - Trial onset (manual)') + 
+  ggtitle('Trial offset time') 
+ggsave('offsets.png')
+
+
+```

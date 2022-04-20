@@ -13,6 +13,7 @@
 
 input_folder = '/Users/gracesong/Desktop/Datavyu/Datavyu2'
 output_file = '/Users/gracesong/Desktop/Datavyu/Datavyu2/data/data.csv'
+
 code_map = {
   'ID' => %w(sub dot dob sex),
   'Trials' => %w(x ordinal onset offset),

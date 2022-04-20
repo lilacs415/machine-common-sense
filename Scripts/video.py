@@ -97,8 +97,6 @@ def write_to_json(child_id, timestamps, num_frames, filename):
 
     return
 
-    
-
 if __name__ == "__main__":
-    vid_path = "../TEMP_video/3GSKJ5.mp4"
+    vid_path = "/Users/galraz1/Developer/TEMP_video/LFNGJV.mp4"
     timestamps = get_frame_information(vid_path)[0]

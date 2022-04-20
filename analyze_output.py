@@ -17,7 +17,7 @@ from Scripts.video import get_frame_information
 trial_info_source = 'lookit'
 
 # This is only relevant if trial_info_source = 'lookit'. if set to true, it's going
-# regenerate the json_table from the raw json files. if set to false, it'll try # TODO: retrieve
+# regenerate the lookit json table from the raw json files. if set to false, it'll try # TODO: retrieve
 regenerate_json_table = True
 
 # global directory path variables. make these your folder names under MCS
@@ -39,7 +39,7 @@ def listdir_nohidden(path):
 ## ANALYSIS SCRIPT ##
 ####################
 def run_analyze_output():
-
+    
     if trial_info_source == 'lookit':
         if regenerate_json_table:
             lookit_trial_onsets = get_lookit_trial_onsets()
@@ -47,7 +47,7 @@ def run_analyze_output():
         else:
             pass
             # load saved lookit session info
-            # lookit_trial_onsets = read_csv('lookit_info/lookit_trial_info.csv')
+            lookit_trial_onsets = pd.read_csv('lookit_info/lookit_trial_info.csv')
         
 
     for filename in listdir_nohidden(iCatcher_dir):

@@ -1,16 +1,17 @@
 from datetime import datetime 
 import pandas as pd
 from string import digits
-
+import json
+import numpy as np
 
 iCatcher_dir = 'iCatcherOutput'
 
-def get_lookit_trial_onsets():
+def get_lookit_trial_times():
 
-    f = open('lookit_info/lookit_info_sessionA.json')
+    f = open('lookit_info_sessionA.json')
     sessionA_info = json.load(f)
 
-    f = open('lookit_info/lookit_info_sessionB.json')
+    f = open('lookit_info_sessionB.json')
     sessionB_info = json.load(f)
 
     # combine info from both sessions
@@ -31,19 +32,37 @@ def get_lookit_trial_onsets():
             # timestamp of start of recording
             video_onset = datetime.fromisoformat(session_info['exp_data'][recording_start_key[0]]['eventTimings'][5]['timestamp'][0:-1])
 
-            # create dict, which has 5 columns: child id, recording onset, trial type, 
-            # absolute trial onset, relative trial onset and trial number
-            trial_timestamps = \
-                [{'child_id': child_id, 'video_onset': video_onset, 'trial_type': key, \
-                                'absolute_onset': datetime.fromisoformat(value['eventTimings'][2]['timestamp'][0:-1]), \
-                                'absolute_offset': datetime.fromisoformat(value['eventTimings'][-3]['timestamp'][0:-1])} \
-                                for key, value in session_info['exp_data'].items() \
-                                    # get fam and test trials (but not attention getters)
-                                    if ('fam' in key or 'test' in key) and 'attention' not in key] 
+            # identify index of the trials we want: the first videoStarted, and last videoPaused
+            for key, value in session_info['exp_data'].items():
+                
+                # only consider fam and test trials, no attention getters (and no prematurely terminated trials)
+                if ('fam' in key or 'test' in key) and ('attention' not in key) and (len(value['eventTimings']) > 2):
+                    print(key)
 
-            trial_timing_info = trial_timing_info.append(pd.DataFrame(trial_timestamps))
+                    eventTypes = [timestamp_type['eventType'] for timestamp_type in value['eventTimings']]
 
-    
+                    # get locations of videoStarted and videoPaused
+                    videoStartedIdx = ['videoStarted' in event for event in eventTypes]
+                    videoPausedIdx = ['videoPaused' in event for event in eventTypes]
+
+                    # find first place where 'videoStarted' appears
+                    if any(videoStartedIdx):
+                        video_start_idx = np.where(videoStartedIdx)[0][0]  
+
+                    # find last place where 'videoPaused' appears
+                    if any(videoPausedIdx):
+                        video_end_idx = np.where(videoPausedIdx)[0][-1]
+
+                    if any(videoStartedIdx) and any(videoPausedIdx):      
+                        trial_timestamps = \
+                        [{'child_id': child_id, 'video_onset': video_onset, 'trial_type': key, \
+                                        'absolute_onset': datetime.fromisoformat(value['eventTimings'][video_start_idx]['timestamp'][0:-1]), \
+                                        'absolute_offset': datetime.fromisoformat(value['eventTimings'][video_end_idx]['timestamp'][0:-1]),
+                                        'trial_type_onset': eventTypes[video_start_idx],
+                                        'trial_type_offset': eventTypes[video_end_idx]}]
+
+                        trial_timing_info = trial_timing_info.append(pd.DataFrame(trial_timestamps))
+
     # get trial onset/offset relative to onset of video recording
     trial_timing_info['relative_onset'] = trial_timing_info['absolute_onset'] - trial_timing_info['video_onset']
     trial_timing_info['relative_offset'] = trial_timing_info['absolute_offset'] - trial_timing_info['video_onset']
@@ -60,29 +79,8 @@ def get_lookit_trial_onsets():
     # get trial number using absolute onsets
     trial_timing_info['trial_number'] = trial_timing_info.groupby('child_id').cumcount()+1
 
+    return trial_timing_info
 
+trial_timing_info = get_lookit_trial_times()
+trial_timing_info.to_csv('lookit_trial_timing_info.csv')
 
-
-
-        # throw error if child id isn't in json
-        if child_id not in sessionA_dict or sessionB_dict:
-            raise Exception('child id not found in lookit info')
-
-
-    # goal is to reformat dict such that key is child_id, and value is trial sets (in ms)
-    # alternatively: make it a pandas dataframe where columns are child id, and rows are onset offset onffset etc.
-    # think about to what extent it's worth it to extract trial info here
-    # (because we could derive this from the condition of the subject which is recorded in the log,
-    # however condition alone doesn't account for e.g. repeated trials and other funky things that might happen during the session)
-
-    # 1. find start-image-recording timestamps and save it as t = 0
-    # 2. find all other starts and stops of relevant trials (all fam and test trials)
-    # 3. calculate their timestamps in ms from t=0
-    # 4.
-    #
-
-
-    # save file to csv
-    # write_csv(lookit_trial_info, 'lookit_trial_info.csv')
-
-    return lookit_trial_info
