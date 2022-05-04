@@ -5,8 +5,6 @@ from pathlib import Path
 import json
 import pickle
 
-from nbformat import write
-
 def get_frame_information(video_file_path, data_file_path='video_data.json'):
 
     child_id = video_file_path.strip('.mp4').split('/')[-1]
@@ -47,7 +45,7 @@ def get_frame_information(video_file_path, data_file_path='video_data.json'):
 
     # convert to milliseconds
     frame_times_ms = [int(1000*float(x)) for x in frame_times]
-    assert frame_times_ms[0] == 0.0
+    assert frame_times_ms[0] < 10.0
 
     # write to json if video information extracted
     if frame_times_ms:

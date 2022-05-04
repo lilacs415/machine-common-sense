@@ -8,7 +8,7 @@ iCatcher_dir = 'iCatcherOutput'
 
 def get_lookit_trial_times():
 
-    f = open('BBB.json')
+    f = open('lookit_info/BBB.json')
     BBB_info = json.load(f)
 
     # dataframe in which info will be accumulated
@@ -58,8 +58,11 @@ def get_lookit_trial_times():
                         trial_timing_info = trial_timing_info.append(pd.DataFrame(trial_timestamps))
 
     # get trial onset/offset relative to onset of video recording
-    trial_timing_info['relative_onset'] = trial_timing_info['absolute_onset'] - trial_timing_info['video_onset']
-    trial_timing_info['relative_offset'] = trial_timing_info['absolute_offset'] - trial_timing_info['video_onset']
+    trial_timing_info['relative_onset'] = trial_timing_info['absolute_onset'] - trial_timing_info['video_onset'] 
+    trial_timing_info['relative_onset'] = trial_timing_info['relative_onset'].apply(lambda x: x.total_seconds() * 1000)
+
+    trial_timing_info['relative_offset'] = trial_timing_info['absolute_offset'] - trial_timing_info['video_onset'] 
+    trial_timing_info['relative_offset'] = trial_timing_info['relative_offset'].apply(lambda x: x.total_seconds() * 1000)
 
     # clean up trial type to be ready for parsing
     trial_timing_info['trial_type'] = trial_timing_info['trial_type'].str.replace('\d+-', '')

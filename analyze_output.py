@@ -11,11 +11,12 @@ from Scripts.video import get_frame_information
 
 # global directory path variables. make these your folder names under MCS
 ICATCHER_DIR = 'iCatcherOutput'
-DATAVYU_IN = 'InputFiles'
-DATAVYU_OUT = 'OutputFiles'
+
+# trial info
+TRIAL_INFO_DIR = 'lookit_info/lookit_trial_timing_info.csv'
 
 # directory for videos
-VID_DIR = '../TEMP_video'
+VID_DIR = '/nese/mit/group/saxelab/users/galraz/mcs/videos/BBB'
 
 # add absolute path to iCatcher repo
 ICATCHER = '/Users/gracesong/dev/iCatcher'
@@ -32,7 +33,7 @@ def listdir_nohidden(path):
 ###################
 ## ANALYSIS SCRIPT ##
 ####################
-def run_analyze_output(data_filename="out.csv", session=None):
+def run_analyze_output(data_filename="BBB_output.csv", session=None):
     """
     Given an iCatcher output directory and Datavyu input and output 
     files, runs iCatcher over all videos in vid_dir that have not been
@@ -45,7 +46,7 @@ def run_analyze_output(data_filename="out.csv", session=None):
             searches within [VID_DIR]/session[session]
     """
     for filename in listdir_nohidden(ICATCHER_DIR):
-        child_id = filename.split('_')[0]
+        child_id = filename.split('.')[0]
 
         # skip if child data already added
         output_file = Path(data_filename)
@@ -55,13 +56,6 @@ def run_analyze_output(data_filename="out.csv", session=None):
             if child_id in ids: 
                 print(child_id + ' already processed')
                 continue
-        
-        # checks for corresponding Datavyu files
-        try:
-            input_file, output_file = get_input_output(filename)
-        except Exception:
-            print('No Datavyu files found for {}'.format(child_id))
-            continue
         
         vid_path = VID_DIR + '/'
         if session:
@@ -79,22 +73,27 @@ def run_analyze_output(data_filename="out.csv", session=None):
         icatcher_path = ICATCHER_DIR + '/' + filename
         icatcher = read_convert_output(icatcher_path, timestamps)
 
-        # get trial onsets and offsets in Datavyu input file, match to iCatcher file
-        trial_sets = get_trial_sets(input_file)
+        # get trial onsets and offsets from input file, match to iCatcher file
+        trial_sets, df = get_trial_sets(child_id)
         assign_trial(icatcher, trial_sets)
         
         # sum on looks and off looks for each trial
         icatcher_times = get_on_off_times(icatcher)
-        datavyu_times = get_output_times(output_file)
+        # datavyu_times = get_output_times(output_file)
 
-        write_to_csv(data_filename, child_id, icatcher_times, datavyu_times, session)
+        # check whether number of trials from trial info is the same as 
+        if icatcher['trial'].max() != len(df):
+            print('mismatch in # of trials between icatcher and session info: {} in {} folder'.format(child_id, VID_DIR))
+            continue
+
+        write_to_csv(data_filename, child_id, icatcher_times, session, df['fam_or_test'], df['scene'], icatcher)
 
         # return comparison metrics 
-        icatcher_arr, datavyu_arr = np.array(icatcher_times).flatten(), np.array(datavyu_times).flatten()
-        stat, p = pearsonr(icatcher_arr, datavyu_arr)
-        print('Datavyu total on-off looks per trial: \n', datavyu_times)
-        print('iCatcher total on-off looks per trial: \n', icatcher_times)
-        print('Pearson R coefficient: {} \np-value: {}'.format(round(stat, 3), round(p, 3)))
+        # icatcher_arr, datavyu_arr = np.array(icatcher_times).flatten(), np.array(datavyu_times).flatten()
+        #stat, p = pearsonr(icatcher_arr, datavyu_arr)
+       # print('Datavyu total on-off looks per trial: \n', datavyu_times)
+      #  print('iCatcher total on-off looks per trial: \n', icatcher_times)
+      #  print('Pearson R coefficient: {} \np-value: {}'.format(round(stat, 3), round(p, 3)))
 
 
 #####################
@@ -136,19 +135,23 @@ def read_convert_output(filename, stamps):
     time stamp at frame i
     rtype: DataFrame
     """
-    df = pd.read_csv(filename, names = ['frame', 'on_off'])
-    
+    npz = np.load(filename)
+    df = pd.DataFrame([])
+
+    lst = npz.files
+
+    df['frame'] = range(1, len(npz[lst[0]]) + 1)
+    df['on_off'] = ['on' if frame > 0 else 'off' for frame in npz[lst[0]]]
+    df['confidence'] = npz[lst[1]]
+
     # convert frames to ms using frame rate
-    df['time_ms'] = df['frame'].apply(lambda x: stamps[x])
+    df['time_ms'] = stamps
     df['time_ms'] = df['time_ms'].astype(int)
-    
-    df['on_off'] = df['on_off'].apply(lambda x: x.strip())
-    # df['time'] = df['frame'].apply(lambda x: pd.to_datetime(x / frame_rate, unit='s').strftime('%H:%M:%S.%f'))
     
     return df
 
 
-def get_trial_sets(input_file):
+def get_trial_sets(child_id):
     """
     Finds corresponding Datavyu input file for given iCatcher output file
     and returns a list of [onset, offset] times for each trial in 
@@ -157,27 +160,26 @@ def get_trial_sets(input_file):
     input_file (string): name of Datavyu input file
     rtype: List[List[int]]
     """
-    input_file = DATAVYU_IN + '/' + input_file
-    df = pd.read_csv(input_file)
+    df = pd.read_csv(TRIAL_INFO_DIR)
+
+    # get part of df from current child
+    df = df[df['child_id'] == child_id] 
 
     # there's two different file formats -- updated as needed 
-    try: 
-        df_sets = df[['Trials.onset', 'Trials.offset']]
-        df_sets = df_sets.rename(columns={"Trials.onset": "onset", "Trials.offset": "offset"})
-    except: 
-        df_sets = df[['Trials_onset', 'Trials_offset']]
-        df_sets = df_sets.rename(columns={"Trials_onset": "onset", "Trials_offset": "offset"})
+    df_sets = df[['relative_onset', 'relative_offset']]
+    df_sets = df_sets.rename(columns={"relative_onset": "onset", "relative_offset": "offset"})
+    
     df_sets.dropna(inplace=True)
 
     trial_sets = []
     for _, trial in df_sets.iterrows():
-        trial_sets.append([int(trial['Trials.onset']), int(trial['Trials.offset'])])
+        trial_sets.append([int(trial['onset']), int(trial['offset'])])
 
     def unique(sequence):
         seen = set()
         return [x for x in sequence if not (tuple(x) in seen or seen.add(tuple(x)))]
 
-    return unique(trial_sets)
+    return unique(trial_sets), df
 
 
 def assign_trial(df, trial_sets):
@@ -213,7 +215,7 @@ def get_on_off_times(df):
     time stamp at frame i
     rtype: List[List[float]]
     """
-    n_trials = max(pd.unique(df['trial']))
+    n_trials = df['trial'].max()
     looking_times = [[0, 0] for trial in range(n_trials)]
     
     # separate times by trial
@@ -275,7 +277,7 @@ def get_output_times(output_file):
     return looking_times
 
 
-def write_to_csv(data_filename, child_id, icatcher_data, datavyu_data, session):
+def write_to_csv(data_filename, child_id, icatcher_data, session, trial_type, stim_type, icatcher):
     """
     checks if output file is in directory. if not, writes new file
     containing looking times computed by iCatcher and Datavyu for child
@@ -289,17 +291,18 @@ def write_to_csv(data_filename, child_id, icatcher_data, datavyu_data, session):
     session (string): the experiment session the participant was placed in
     rtype: None
     """
-    assert(len(icatcher_data) == len(datavyu_data))
+    # assert(len(icatcher_data) == len(datavyu_data))
     num_trials = len(icatcher_data)
-    id_arr = [id] * len(icatcher_data)
+    id_arr = [child_id] * len(icatcher_data)
     data = {
         'child': id_arr,
         'session': [session] * num_trials,
         'trial_num': [i + 1 for i in range(len(icatcher_data))],
-        'Datavyu_on(s)': [trial[0] for trial in datavyu_data],
-        'Datavyu_off(s)': [trial[1] for trial in datavyu_data],
+        'trial_type': trial_type,
+        'stim_type': stim_type,
+        'confidence': list(icatcher[(icatcher['on_off'] == 'on') & (icatcher['trial'] != 0)].groupby('trial')[['confidence']].mean().squeeze()),
         'iCatcher_on(s)': [trial[0] for trial in icatcher_data],
-        'iCatcher_off(s)': [trial [1] for trial in icatcher_data]
+        'iCatcher_off(s)': [trial[1] for trial in icatcher_data]
     }
 
     df = pd.DataFrame(data)
