@@ -1,7 +1,5 @@
 # Untracked files 
-iCatcherOutput/
-InputFiles/
-OpfFiles/
-OutputFiles/
+
+
 Scripts/__pycache__/
 .ipynb_checkpoints/
