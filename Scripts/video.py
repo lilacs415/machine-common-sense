@@ -35,11 +35,9 @@ def get_frame_information(video_file_path, data_file_path='video_data.json'):
     output = json.loads(output)
 
     frames = output.get('frames', [])
-
     # did not find video
     if not frames: 
-        print('did not find time stamps')
-        return [], 0, []
+        return [], []
 
     # filter out video frame info only 
     video_frames = [frame for frame in output['frames'] if frame['media_type'] == 'video']
@@ -71,7 +69,6 @@ def write_to_json(child_id, timestamps, num_frames, filename):
     child_id (string): unique child ID associated with subject
     timestamps (List[int]):
     num_frames (int): number of frames in the video
-
     rtype: None
     """
     vid_data = {
@@ -97,6 +94,8 @@ def write_to_json(child_id, timestamps, num_frames, filename):
 
     return
 
+    
+
 if __name__ == "__main__":
-    vid_path = "/Users/galraz1/Developer/TEMP_video/LFNGJV.mp4"
+    vid_path = "../TEMP_video/3GSKJ5.mp4"
     timestamps = get_frame_information(vid_path)[0]

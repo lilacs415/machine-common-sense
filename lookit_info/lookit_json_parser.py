@@ -1,4 +1,4 @@
-from datetime import datetime 
+from datetime import datetime
 import pandas as pd
 from string import digits
 import json
@@ -8,33 +8,27 @@ iCatcher_dir = 'iCatcherOutput'
 
 def get_lookit_trial_times():
 
-    f = open('lookit_info_sessionA.json')
-    sessionA_info = json.load(f)
-
-    f = open('lookit_info_sessionB.json')
-    sessionB_info = json.load(f)
-
-    # combine info from both sessions
-    dictionaries_combined = sessionA_info + sessionB_info
+    f = open('BBB.json')
+    BBB_info = json.load(f)
 
     # dataframe in which info will be accumulated
     trial_timing_info = pd.DataFrame()
 
-    for session_info in dictionaries_combined:
+    for session_info in BBB_info:
 
         # get key of recording start
-        recording_start_key = [v for v in session_info['exp_data'].keys() if v.endswith('start-recording-with-image')] 
-        
+        recording_start_key = [v for v in session_info['exp_data'].keys() if v.endswith('start-recording-with-image')]
+
         # only continue if this part of the dictionary has a 'start-recording-with-image' frame
         if recording_start_key:
-            child_id = session_info['child']['hashed_id']     
+            child_id = session_info['child']['hashed_id']
 
             # timestamp of start of recording
             video_onset = datetime.fromisoformat(session_info['exp_data'][recording_start_key[0]]['eventTimings'][5]['timestamp'][0:-1])
 
             # identify index of the trials we want: the first videoStarted, and last videoPaused
             for key, value in session_info['exp_data'].items():
-                
+
                 # only consider fam and test trials, no attention getters (and no prematurely terminated trials)
                 if ('fam' in key or 'test' in key) and ('attention' not in key) and (len(value['eventTimings']) > 2):
                     print(key)
@@ -47,13 +41,13 @@ def get_lookit_trial_times():
 
                     # find first place where 'videoStarted' appears
                     if any(videoStartedIdx):
-                        video_start_idx = np.where(videoStartedIdx)[0][0]  
+                        video_start_idx = np.where(videoStartedIdx)[0][0]
 
                     # find last place where 'videoPaused' appears
                     if any(videoPausedIdx):
                         video_end_idx = np.where(videoPausedIdx)[0][-1]
 
-                    if any(videoStartedIdx) and any(videoPausedIdx):      
+                    if any(videoStartedIdx) and any(videoPausedIdx):
                         trial_timestamps = \
                         [{'child_id': child_id, 'video_onset': video_onset, 'trial_type': key, \
                                         'absolute_onset': datetime.fromisoformat(value['eventTimings'][video_start_idx]['timestamp'][0:-1]), \
@@ -66,7 +60,7 @@ def get_lookit_trial_times():
     # get trial onset/offset relative to onset of video recording
     trial_timing_info['relative_onset'] = trial_timing_info['absolute_onset'] - trial_timing_info['video_onset']
     trial_timing_info['relative_offset'] = trial_timing_info['absolute_offset'] - trial_timing_info['video_onset']
-    
+
     # clean up trial type to be ready for parsing
     trial_timing_info['trial_type'] = trial_timing_info['trial_type'].str.replace('\d+-', '')
 
@@ -83,4 +77,3 @@ def get_lookit_trial_times():
 
 trial_timing_info = get_lookit_trial_times()
 trial_timing_info.to_csv('lookit_trial_timing_info.csv')
-
