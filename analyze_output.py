@@ -131,6 +131,7 @@ def read_convert_output(filename, stamps):
     
     filename (string): name of tabulated iCatcher output file in format
     '[CHILD_ID]_annotation.txt'
+    # TODO: this is actually npz file!!
     stamps (List[int]): time stamp for each frame, where stamps[i] is the 
     time stamp at frame i
     rtype: DataFrame
@@ -160,6 +161,10 @@ def get_trial_sets(child_id):
     input_file (string): name of Datavyu input file
     rtype: List[List[int]]
     """
+
+    # * this gets trial data from datavyu file, but want to be able to do that from other files
+    # * need 1) start of exp relative to video, 2) start/end of trials relative to exp
+
     df = pd.read_csv(TRIAL_INFO_DIR)
 
     # get part of df from current child
@@ -191,7 +196,6 @@ def assign_trial(df, trial_sets):
     trial_sets (List[List[int]]): list of trial [onset, offset] pairs in ms
     rtype: None
     """
-    
     # mapping function
     def map_to_range(value, ranges):
         """
@@ -205,57 +209,6 @@ def assign_trial(df, trial_sets):
     df['trial'] = df['time_ms'].apply(lambda x: map_to_range(x, trial_sets))
 
 
-def get_on_off_times(df):
-    """
-    Calculates the total on and off look times per trial and returns a list of 
-    [on time, off time] pairs for each trial in seconds
-    
-    df (DataFrame): DataFrame containing trial information per frame
-    stamps (List[int]): time stamp for each frame, where stamps[i] is the 
-    time stamp at frame i
-    rtype: List[List[float]]
-    """
-    n_trials = df['trial'].max()
-    looking_times = [[0, 0] for trial in range(n_trials)]
-    
-    # separate times by trial
-    trial_groups = df.groupby(['trial'])
-    for trial_num, group in trial_groups:
-        # 0 means does not belong in a trial
-        if trial_num == 0:
-            continue
-
-        last_look, start_time = None, None
-
-        for index, row in group.iterrows():
-            time, look = row['time_ms'], row['on_off']
-
-            # start of on or off look
-            if not(last_look and start_time):
-                last_look, start_time = look, time
-                look_time = 0
-
-            if look == last_look:
-                look_time = (time - start_time) / 1000
-
-            # end of a look or end of trial
-            else:
-                ind = ['on', 'off'].index(last_look)
-                looking_times[trial_num - 1][ind] += look_time
-
-                # reset values
-                last_look, start_time = None, None
-
-        # special case where entire trial is one look
-        if last_look and start_time:
-                ind = ['on', 'off'].index(last_look)
-                looking_times[trial_num - 1][ind] += look_time   
-
-    looking_times = [[round(on, 3), round(off, 3)] for on, off in looking_times]
-    
-    return looking_times
-
-
 def get_output_times(output_file):
     """
     Finds corresponding Datavyu output file for given iCatcher output file
@@ -265,6 +218,7 @@ def get_output_times(output_file):
     output_file (string): name of Datavyu output file
     rtype: List[List[int]]
     """
+    # * don't need datavyu looks
     output_file = DATAVYU_OUT + '/' + output_file
     df = pd.read_csv(output_file)
     df_looks = df[['Looks On Total (s)', 'Looks Off Total (s)']]
@@ -295,14 +249,14 @@ def write_to_csv(data_filename, child_id, icatcher_data, session, trial_type, st
     num_trials = len(icatcher_data)
     id_arr = [child_id] * len(icatcher_data)
     data = {
-        'child': id_arr,
-        'session': [session] * num_trials,
-        'trial_num': [i + 1 for i in range(len(icatcher_data))],
-        'trial_type': trial_type,
-        'stim_type': stim_type,
-        'confidence': list(icatcher[(icatcher['on_off'] == 'on') & (icatcher['trial'] != 0)].groupby('trial')[['confidence']].mean().squeeze()),
-        'iCatcher_on(s)': [trial[0] for trial in icatcher_data],
-        'iCatcher_off(s)': [trial[1] for trial in icatcher_data]
+        'child': id_arr, # * subject level info
+        'session': [session] * num_trials, # * subject level info
+        'trial_num': [i + 1 for i in range(len(icatcher_data))], # * Trials.ordinal
+        'trial_type': trial_type, # * Trials.x
+        'stim_type': stim_type, # * Trial level info
+        'confidence': list(icatcher[(icatcher['on_off'] == 'on') & (icatcher['trial'] != 0)].groupby('trial')[['confidence']].mean().squeeze()), # * no confidence
+        'iCatcher_on(s)': [trial[0] for trial in icatcher_data], # * don't want this
+        'iCatcher_off(s)': [trial[1] for trial in icatcher_data] # * don't want this
     }
 
     df = pd.DataFrame(data)
